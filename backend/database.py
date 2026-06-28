@@ -1,0 +1,24 @@
+from sqlalchemy import create_engine
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker
+
+# This is like your application.properties datasource URL in Spring Boot
+SQLALCHEMY_DATABASE_URL = "sqlite:///./zoom_clone.db"
+
+engine = create_engine(
+    SQLALCHEMY_DATABASE_URL,
+    connect_args={"check_same_thread": False}
+)
+
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+# This is like your @Entity base class
+Base = declarative_base()
+
+# This is like @Autowired dependency injection for DB session
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
