@@ -12,20 +12,56 @@ function MeetingRoom() {
   const router = useRouter();
   const name = params.get('name') || 'Default User';
   const videoRef = useRef<HTMLVideoElement>(null);
+  const cameraStreamRef = useRef<MediaStream | null>(null);
+  const screenStreamRef = useRef<MediaStream | null>(null);
   const [meeting, setMeeting] = useState<any>(null);
   const [muted, setMuted] = useState(false);
   const [videoOff, setVideoOff] = useState(false);
+  const [sharing, setSharing] = useState(false);
   const [copied, setCopied] = useState(false);
   const [time, setTime] = useState(0);
 
   useEffect(() => {
     axios.get(`${API}/api/meetings/${id}`).then(r => setMeeting(r.data)).catch(() => {});
     navigator.mediaDevices.getUserMedia({ video: true, audio: true })
-      .then(stream => { if (videoRef.current) videoRef.current.srcObject = stream; })
+      .then(stream => {
+        cameraStreamRef.current = stream;
+        if (videoRef.current) videoRef.current.srcObject = stream;
+      })
       .catch(() => {});
     const timer = setInterval(() => setTime(t => t + 1), 1000);
-    return () => clearInterval(timer);
+    if (params.get('share') === 'true') toggleShareScreen();
+    return () => {
+      clearInterval(timer);
+      cameraStreamRef.current?.getTracks().forEach(t => t.stop());
+      screenStreamRef.current?.getTracks().forEach(t => t.stop());
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
+
+  const stopScreenShare = () => {
+    screenStreamRef.current?.getTracks().forEach(t => t.stop());
+    screenStreamRef.current = null;
+    setSharing(false);
+    if (videoRef.current) videoRef.current.srcObject = cameraStreamRef.current;
+  };
+
+  const toggleShareScreen = async () => {
+    if (sharing) {
+      stopScreenShare();
+      return;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+      screenStreamRef.current = stream;
+      if (videoRef.current) videoRef.current.srcObject = stream;
+      setSharing(true);
+      // Auto-revert if user stops sharing via the browser's own "Stop sharing" control
+      stream.getVideoTracks()[0].addEventListener('ended', stopScreenShare);
+    } catch {
+      // User cancelled the share picker — do nothing
+    }
+  };
 
   const formatTime = (s: number) =>
     `${String(Math.floor(s / 3600)).padStart(2,'0')}:${String(Math.floor((s % 3600) / 60)).padStart(2,'0')}:${String(s % 60).padStart(2,'0')}`;
@@ -39,7 +75,7 @@ function MeetingRoom() {
   const controls = [
     { label: muted ? 'Unmute' : 'Mute',              icon: muted ? '🔇' : '🎤', action: () => setMuted(!muted) },
     { label: videoOff ? 'Start Video' : 'Stop Video', icon: videoOff ? '📷' : '🎥', action: () => setVideoOff(!videoOff) },
-    { label: 'Share Screen',                          icon: '🖥️',                action: () => {} },
+    { label: sharing ? 'Stop Sharing' : 'Share Screen', icon: sharing ? '🛑' : '🖥️', action: toggleShareScreen },
     { label: 'Participants',                          icon: '👥',                action: () => {} },
     { label: 'Chat',                                  icon: '💬',                action: () => {} },
   ];
