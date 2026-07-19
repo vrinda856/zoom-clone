@@ -28,11 +28,23 @@ export default function Dashboard() {
     }
   };
 
+  const startScreenShareMeeting = async () => {
+    try {
+      const res = await axios.post(`${API}/api/meetings`, {
+        title: 'My Instant Meeting',
+        is_instant: true
+      });
+      router.push(`/meeting/${res.data.meeting_id}?name=Default+User&share=true`);
+    } catch (err) {
+      alert('Failed to start meeting. Is the backend running?');
+    }
+  };
+
   const actions = [
     { label: 'New Meeting',  emoji: '📹', color: 'bg-orange-500', action: startInstantMeeting },
     { label: 'Join',         emoji: '➕', color: 'bg-blue-500',   action: () => router.push('/join') },
     { label: 'Schedule',     emoji: '📅', color: 'bg-blue-500',   action: () => router.push('/schedule') },
-    { label: 'Share Screen', emoji: '⬆️', color: 'bg-blue-500',   action: () => {} },
+    { label: 'Share Screen', emoji: '⬆️', color: 'bg-blue-500',   action: startScreenShareMeeting },
   ];
 
   return (
